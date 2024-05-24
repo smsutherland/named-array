@@ -3,4 +3,13 @@ name = "named-array"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+proc-macro = true
+
 [dependencies]
+quote = "1.0.36"
+
+[dependencies.syn]
+version = "2.0.66"
+default-features = false
+features = ["full", "parsing", "proc-macro", "printing", "extra-traits"]
