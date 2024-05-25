@@ -43,6 +43,7 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         _ => panic!("only structs with named fields are supported"),
     };
 
+    let mut errs = Vec::new();
     let mut names = Vec::new();
     let ty = fields
         .next()
@@ -53,12 +54,34 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .expect("Expected at least one field");
     for f in fields {
         if f.ty != *ty {
-            panic!("All fields must have the same type");
+            errs.push(syn::Error::new_spanned(
+                &f.ty,
+                "All fields must have the same type",
+            ));
         }
         names.push(f.ident.as_ref().unwrap());
     }
 
     let struct_name = source.ident;
+
+    if !errs.is_empty() {
+        let errs = errs.into_iter().map(|e| e.to_compile_error());
+
+        // If there are any errors, return a dummy impl to avoid a flood of errors where indexing
+        // gets used.
+        return quote! {
+            #(#errs)*
+
+            impl ::std::ops::Index<usize> for #struct_name {
+                type Output = #ty;
+                fn index(&self, _: usize) -> &Self::Output {
+                    unimplemented!("Unable to generate code due to previous errors");
+                }
+            }
+        }
+        .into();
+    }
+
     let len = names.len();
     let match_parts = names.into_iter().enumerate().map(|(i, name)| {
         quote! {
