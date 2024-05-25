@@ -29,6 +29,22 @@
 //! # }
 //! ```
 //!
+//! This can be used with tuple structs as well.
+//! However, you may be better off using `struct Foo([u32; 3])` instead of `struct Foo(u32, u32, u32)`.
+//!
+//! # Example with unnamed fields
+//! ```rust
+//! # use named_array::named_array;
+//! #[derive(named_array)]
+//! struct Example(u32, u32, u32);
+//! # fn main() {
+//! let example = Example(1, 2, 3);
+//! assert_eq!(example[0], example.0);
+//! assert_eq!(example[1], example.1);
+//! assert_eq!(example[2], example.2);
+//! # }
+//! ```
+//!
 //! [`Index`]: ::core::ops::Index
 //! [`IndexMut`]: ::core::ops::IndexMut
 
@@ -39,9 +55,17 @@ use quote::quote;
 pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let source: syn::ItemStruct = syn::parse(input).expect("Expected struct definition");
 
-    let mut fields = match &source.fields {
-        syn::Fields::Named(fields) => fields.named.iter(),
-        _ => panic!("only structs with named fields are supported"),
+    match &source.fields {
+        syn::Fields::Named(_) => make_named(source),
+        syn::Fields::Unnamed(_) => make_unnamed(source),
+        _ => panic!("unit structs are not supported"),
+    }
+}
+
+fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
+    let mut fields = match source.fields {
+        syn::Fields::Named(ref f) => f.named.iter(),
+        _ => unreachable!("Only call this function for structs with named fields"),
     };
 
     let mut errs = Vec::new();
@@ -115,6 +139,78 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 )*
                 i => panic!(#panic_msg, i),
             }
+            }
+        }
+    }
+    .into()
+}
+
+fn make_unnamed(source: syn::ItemStruct) -> proc_macro::TokenStream {
+    let mut fields = match source.fields {
+        syn::Fields::Unnamed(ref f) => f.unnamed.iter(),
+        _ => unreachable!("Only call this function for structs with named fields"),
+    };
+
+    let len = fields.len();
+    let mut errs = Vec::new();
+    let ty = fields
+        .next()
+        .map(|f| &f.ty)
+        .expect("Expected at least one field");
+    for f in fields {
+        if f.ty != *ty {
+            errs.push(syn::Error::new_spanned(
+                &f.ty,
+                "All fields must have the same type",
+            ));
+        }
+    }
+
+    let struct_name = source.ident;
+
+    if !errs.is_empty() {
+        let errs = errs.into_iter().map(|e| e.to_compile_error());
+        // If there are any errors, return a dummy impl to avoid a flood of errors where indexing
+        // gets used.
+        return quote! {
+            #(#errs)*
+            impl ::core::ops::Index<usize> for #struct_name {
+                type Output = #ty;
+                fn index(&self, _: usize) -> &Self::Output {
+                    unimplemented!("Unable to generate code due to previous errors");
+                }
+            }
+            impl ::core::ops::IndexMut<usize> for #struct_name {
+                fn index_mut(&mut self, _: usize) -> &mut Self::Output {
+                    unimplemented!("Unable to generate code due to previous errors");
+                }
+            }
+        }
+        .into();
+    }
+
+    let panic_msg = format!("index out of bounds: the len is {len} but the index is {{}}");
+    let range1 = 0usize..len;
+    let range2 = 0usize..len;
+    let index1 = (0usize..len).map(syn::Index::from);
+    let index2 = (0usize..len).map(syn::Index::from);
+
+    quote! {
+        impl ::core::ops::Index<usize> for #struct_name {
+            type Output = #ty;
+            fn index(&self, index: usize) -> &Self::Output {
+                match index {
+                    #( #range1 => &self.#index1, )*
+                    i => panic!(#panic_msg, i),
+                }
+            }
+        }
+        impl ::core::ops::IndexMut<usize> for #struct_name {
+            fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+                match index {
+                    #( #range2 => &mut self.#index2, )*
+                    i => panic!(#panic_msg, i),
+                }
             }
         }
     }
