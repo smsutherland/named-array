@@ -1,6 +1,6 @@
 //! This crate provides the [`derive@named_array`] derive macro, which allows you to access fields of a
 //! struct as if they were elements of an array.
-//! This provides an impl of [`Index`], which translates from a `usize` index to the fields, in the
+//! This provides an impl's of [`Index`] and [`IndexMut`], which translates from a `usize` index to the fields, in the
 //! order in which they appear.
 //!
 //! The type of all the fields must be the same, and written identically.
@@ -30,6 +30,7 @@
 //! ```
 //!
 //! [`Index`]: ::core::ops::Index
+//! [`IndexMut`]: ::core::ops::IndexMut
 
 use quote::quote;
 
