@@ -2,6 +2,11 @@
 name = "named-array"
 version = "0.1.0"
 edition = "2021"
+authors = ["Sagan Sutherland <sagan@farthinghalearms.com>"]
+keywords = ["proc-macro"]
+repository = "https://github.com/smsutherland/named-array"
+description = "A procedural macro for accessing struct fields as an array."
+license = "MIT OR Apache-2.0"
 
 [lib]
 proc-macro = true
