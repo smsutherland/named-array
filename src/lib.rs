@@ -59,12 +59,13 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 
     let struct_name = source.ident;
-
-    let match_parts = names.iter().enumerate().map(|(i, name)| {
+    let len = names.len();
+    let match_parts = names.into_iter().enumerate().map(|(i, name)| {
         quote! {
             #i => &self.#name
         }
     });
+    let panic_msg = format!("index out of bounds: the len is {len} but the index is {{}}");
 
     quote! {
         impl ::std::ops::Index<usize> for #struct_name {
@@ -74,7 +75,7 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     #(
                         #match_parts,
                     )*
-                    i => panic!("Index out of bounds: {}", i),
+                    i => panic!(#panic_msg, i),
                 }
             }
         }

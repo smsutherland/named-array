@@ -16,7 +16,7 @@ fn use_arr() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected = "index out of bounds: the len is 3 but the index is 3")]
 fn fail_arr() {
     let arr = Arr { a: 1, b: 2, c: 3 };
     let _ = arr[3];
