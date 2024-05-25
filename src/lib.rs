@@ -29,7 +29,7 @@
 //! # }
 //! ```
 //!
-//! [`Index`]: ::std::ops::Index
+//! [`Index`]: ::core::ops::Index
 
 use quote::quote;
 
@@ -72,14 +72,14 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         return quote! {
             #(#errs)*
 
-            impl ::std::ops::Index<usize> for #struct_name {
+            impl ::core::ops::Index<usize> for #struct_name {
                 type Output = #ty;
                 fn index(&self, _: usize) -> &Self::Output {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
             }
 
-            impl ::std::ops::IndexMut<usize> for #struct_name {
+            impl ::core::ops::IndexMut<usize> for #struct_name {
                 fn index_mut(&mut self, _: usize) -> &mut Self::Output {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
@@ -94,7 +94,7 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let range2 = 0usize..;
 
     quote! {
-        impl ::std::ops::Index<usize> for #struct_name {
+        impl ::core::ops::Index<usize> for #struct_name {
             type Output = #ty;
             fn index(&self, index: usize) -> &Self::Output {
                 match index {
@@ -106,7 +106,7 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             }
         }
 
-        impl ::std::ops::IndexMut<usize> for #struct_name {
+        impl ::core::ops::IndexMut<usize> for #struct_name {
             fn index_mut(&mut self, index: usize) -> &mut Self::Output {
             match index {
                 #(
