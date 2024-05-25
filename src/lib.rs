@@ -78,17 +78,20 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
             }
+
+            impl ::std::ops::IndexMut<usize> for #struct_name {
+                fn index_mut(&mut self, _: usize) -> &mut Self::Output {
+                    unimplemented!("Unable to generate code due to previous errors");
+                }
+            }
         }
         .into();
     }
 
     let len = names.len();
-    let match_parts = names.into_iter().enumerate().map(|(i, name)| {
-        quote! {
-            #i => &self.#name
-        }
-    });
     let panic_msg = format!("index out of bounds: the len is {len} but the index is {{}}");
+    let range1 = 0usize..;
+    let range2 = 0usize..;
 
     quote! {
         impl ::std::ops::Index<usize> for #struct_name {
@@ -96,10 +99,21 @@ pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             fn index(&self, index: usize) -> &Self::Output {
                 match index {
                     #(
-                        #match_parts,
+                        #range1 => &self.#names,
                     )*
                     i => panic!(#panic_msg, i),
                 }
+            }
+        }
+
+        impl ::std::ops::IndexMut<usize> for #struct_name {
+            fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+            match index {
+                #(
+                    #range2 => &mut self.#names,
+                )*
+                i => panic!(#panic_msg, i),
+            }
             }
         }
     }
