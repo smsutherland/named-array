@@ -54,20 +54,23 @@ use quote::quote;
 /// See the [crate] level documentation.
 #[proc_macro_derive(named_array)]
 pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let source: syn::ItemStruct = syn::parse(input).expect("Expected struct definition");
+    let source = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    match &source.fields {
-        syn::Fields::Named(_) => make_named(source),
-        syn::Fields::Unnamed(_) => make_unnamed(source),
+    let (name, fields) = if let syn::Data::Struct(data) = source.data {
+        (source.ident, data.fields)
+    } else {
+        panic!("Only structs are supported");
+    };
+
+    match fields {
+        syn::Fields::Named(fields) => make_named(name, fields),
+        syn::Fields::Unnamed(fields) => make_unnamed(name, fields),
         _ => panic!("unit structs are not supported"),
     }
 }
 
-fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
-    let mut fields = match source.fields {
-        syn::Fields::Named(ref f) => f.named.iter(),
-        _ => unreachable!("Only call this function for structs with named fields"),
-    };
+fn make_named(name: syn::Ident, fields: syn::FieldsNamed) -> proc_macro::TokenStream {
+    let mut fields = fields.named.iter();
 
     let mut errs = Vec::new();
     let mut names = Vec::new();
@@ -88,8 +91,6 @@ fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
         names.push(f.ident.as_ref().unwrap());
     }
 
-    let struct_name = source.ident;
-
     if !errs.is_empty() {
         let errs = errs.into_iter().map(|e| e.to_compile_error());
 
@@ -98,14 +99,14 @@ fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
         return quote! {
             #(#errs)*
 
-            impl ::core::ops::Index<usize> for #struct_name {
+            impl ::core::ops::Index<usize> for #name {
                 type Output = #ty;
                 fn index(&self, _: usize) -> &Self::Output {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
             }
 
-            impl ::core::ops::IndexMut<usize> for #struct_name {
+            impl ::core::ops::IndexMut<usize> for #name {
                 fn index_mut(&mut self, _: usize) -> &mut Self::Output {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
@@ -120,7 +121,7 @@ fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
     let range2 = 0usize..;
 
     quote! {
-        impl ::core::ops::Index<usize> for #struct_name {
+        impl ::core::ops::Index<usize> for #name {
             type Output = #ty;
             fn index(&self, index: usize) -> &Self::Output {
                 match index {
@@ -132,7 +133,7 @@ fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
             }
         }
 
-        impl ::core::ops::IndexMut<usize> for #struct_name {
+        impl ::core::ops::IndexMut<usize> for #name {
             fn index_mut(&mut self, index: usize) -> &mut Self::Output {
             match index {
                 #(
@@ -146,11 +147,8 @@ fn make_named(source: syn::ItemStruct) -> proc_macro::TokenStream {
     .into()
 }
 
-fn make_unnamed(source: syn::ItemStruct) -> proc_macro::TokenStream {
-    let mut fields = match source.fields {
-        syn::Fields::Unnamed(ref f) => f.unnamed.iter(),
-        _ => unreachable!("Only call this function for structs with named fields"),
-    };
+fn make_unnamed(name: syn::Ident, fields: syn::FieldsUnnamed) -> proc_macro::TokenStream {
+    let mut fields = fields.unnamed.iter();
 
     let len = fields.len();
     let mut errs = Vec::new();
@@ -167,21 +165,19 @@ fn make_unnamed(source: syn::ItemStruct) -> proc_macro::TokenStream {
         }
     }
 
-    let struct_name = source.ident;
-
     if !errs.is_empty() {
         let errs = errs.into_iter().map(|e| e.to_compile_error());
         // If there are any errors, return a dummy impl to avoid a flood of errors where indexing
         // gets used.
         return quote! {
             #(#errs)*
-            impl ::core::ops::Index<usize> for #struct_name {
+            impl ::core::ops::Index<usize> for #name {
                 type Output = #ty;
                 fn index(&self, _: usize) -> &Self::Output {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
             }
-            impl ::core::ops::IndexMut<usize> for #struct_name {
+            impl ::core::ops::IndexMut<usize> for #name {
                 fn index_mut(&mut self, _: usize) -> &mut Self::Output {
                     unimplemented!("Unable to generate code due to previous errors");
                 }
@@ -197,7 +193,7 @@ fn make_unnamed(source: syn::ItemStruct) -> proc_macro::TokenStream {
     let index2 = (0usize..len).map(syn::Index::from);
 
     quote! {
-        impl ::core::ops::Index<usize> for #struct_name {
+        impl ::core::ops::Index<usize> for #name {
             type Output = #ty;
             fn index(&self, index: usize) -> &Self::Output {
                 match index {
@@ -206,7 +202,7 @@ fn make_unnamed(source: syn::ItemStruct) -> proc_macro::TokenStream {
                 }
             }
         }
-        impl ::core::ops::IndexMut<usize> for #struct_name {
+        impl ::core::ops::IndexMut<usize> for #name {
             fn index_mut(&mut self, index: usize) -> &mut Self::Output {
                 match index {
                     #( #range2 => &mut self.#index2, )*
