@@ -29,10 +29,11 @@
 //! # }
 //! ```
 //!
+//! # Tuple structs
+//!
 //! This can be used with tuple structs as well.
 //! However, you may be better off using `struct Foo([u32; 3])` instead of `struct Foo(u32, u32, u32)`.
 //!
-//! # Example with unnamed fields
 //! ```rust
 //! # use named_array::named_array;
 //! #[derive(named_array)]
