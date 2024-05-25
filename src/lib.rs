@@ -1,5 +1,39 @@
+//! This crate provides the [`derive@named_array`] derive macro, which allows you to access fields of a
+//! struct as if they were elements of an array.
+//! This provides an impl of [`Index`], which translates from a `usize` index to the fields, in the
+//! order in which they appear.
+//!
+//! The type of all the fields must be the same, and written identically.
+//! For example, if one field is `Option<()>`, and another is `core::option::Option<()>`, the code
+//! will be rejected.
+//! This is because type information does not exist at the time of macro expansion, so there is no
+//! way to confirm that the two refer to the same type.
+//!
+//! Indexing will panic if the index is out of bounds.
+//!
+//! # Example
+//! ```rust
+//! # use named_array::named_array;
+//! #[derive(named_array)]
+//! struct Example {
+//!     a: u32,
+//!     b: u32,
+//!     c: u32,
+//! }
+//!
+//! # fn main() {
+//! let example = Example { a: 1, b: 2, c: 3 };
+//! assert_eq!(example[0], example.a);
+//! assert_eq!(example[1], example.b);
+//! assert_eq!(example[2], example.c);
+//! # }
+//! ```
+//!
+//! [`Index`]: ::std::ops::Index
+
 use quote::quote;
 
+/// See the [crate] level documentation.
 #[proc_macro_derive(named_array)]
 pub fn named_array(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let source: syn::ItemStruct = syn::parse(input).expect("Expected struct definition");
